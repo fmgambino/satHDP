@@ -202,8 +202,7 @@ function renderMap() {
   filteredReports().forEach(report => {
     const item = DAMAGE_TYPES[report.type] || DEFAULT_DAMAGE_TYPES.bache;
     const marker = new google.maps.Marker({ position: { lat: Number(report.lat), lng: Number(report.lng) }, map, icon: svgMarker(report.type), title: `${item.label} - ${STATUS[report.status]}` });
-    const media = reportMediaHtml(report);
-    const info = new google.maps.InfoWindow({ content: `<div class="info"><strong>${item.emoji} ${item.label}</strong><p>${escapeHtml(report.address)}</p><p>${escapeHtml(report.description)}</p><small>Estado: ${STATUS[report.status]}</small>${media}</div>` });
+    const info = new google.maps.InfoWindow({ content: reportPopupHtml(report, item) });
     marker.addListener('click', () => info.open({ anchor: marker, map }));
     markers.push(marker);
   });
@@ -218,6 +217,11 @@ async function submitReport(e) {
   const files = Array.from($('images')?.files || []);
   const validation = validateImages(files);
   if (!validation.ok) return Swal.fire('Imágenes inválidas', validation.message, 'warning');
+
+  const imageUrl = $('imageUrl')?.value.trim() || '';
+  if (imageUrl && !isLikelyImageUrl(imageUrl)) {
+    return Swal.fire('URL de imagen no válida', 'Ingresá una URL directa a una imagen JPG, PNG, WEBP, GIF o SVG.', 'warning');
+  }
 
   const videoUrl = $('videoUrl').value.trim();
   if (videoUrl && !isAllowedVideoUrl(videoUrl)) {
@@ -239,14 +243,15 @@ async function submitReport(e) {
       lat: Number($('lat').value),
       lng: Number($('lng').value),
       video_url: videoUrl || null,
-      image_urls: [],
+      image_urls: imageUrl ? [imageUrl] : [],
       status: 'pending'
     };
 
     const { data, error } = await supabaseClient.from('reports').insert(payload).select('id').single();
     if (error) throw error;
 
-    const imageUrls = files.length ? await uploadReportImages(data.id, files) : [];
+    const uploadedUrls = files.length ? await uploadReportImages(data.id, files) : [];
+    const imageUrls = [...(imageUrl ? [imageUrl] : []), ...uploadedUrls].slice(0, 6);
     if (imageUrls.length) {
       const { error: updateError } = await supabaseClient.from('reports').update({ image_urls: imageUrls }).eq('id', data.id);
       if (updateError) throw updateError;
@@ -284,6 +289,78 @@ function isAllowedVideoUrl(value) {
   } catch {
     return false;
   }
+}
+
+function isLikelyImageUrl(value) {
+  try {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol)) return false;
+    return /\.(jpe?g|png|webp|gif|svg)(\?.*)?$/i.test(url.pathname + url.search);
+  } catch {
+    return false;
+  }
+}
+
+function getReportImages(report) {
+  return Array.isArray(report.image_urls) ? report.image_urls.filter(Boolean) : [];
+}
+
+function formatDate(value) {
+  return new Date(value).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function reportAge(value) {
+  const diff = Math.max(0, Date.now() - new Date(value).getTime());
+  const days = Math.floor(diff / 86400000);
+  if (days >= 365) return `${Math.floor(days / 365)} año${Math.floor(days / 365) === 1 ? '' : 's'}`;
+  if (days >= 30) return `${Math.floor(days / 30)} mes${Math.floor(days / 30) === 1 ? '' : 'es'}`;
+  if (days >= 1) return `${days} día${days === 1 ? '' : 's'}`;
+  const hours = Math.floor(diff / 3600000);
+  if (hours >= 1) return `${hours} hora${hours === 1 ? '' : 's'}`;
+  return 'Hoy';
+}
+
+function reportPopupHtml(report, item) {
+  const images = getReportImages(report);
+  const mainImage = images[0] || window.APP_CONFIG?.DEFAULT_REPORT_IMAGE || '';
+  const hero = mainImage ? `<a href="${escapeHtml(mainImage)}" target="_blank" rel="noopener"><img class="popup-main-image" src="${escapeHtml(mainImage)}" alt="Imagen principal del reclamo"></a>` : `<div class="popup-main-image empty">${item.emoji}</div>`;
+  const thumbs = images.length > 1 ? `<div class="popup-thumbs">${images.slice(1, 6).map((url, i) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="Imagen ${i + 2}"></a>`).join('')}</div>` : '';
+  const video = report.video_url ? `<a class="popup-video" href="${escapeHtml(report.video_url)}" target="_blank" rel="noopener">🎬 Ver video adjunto</a>` : '';
+  return `<article class="info popup-card">
+    ${hero}
+    <div class="popup-body">
+      <div class="popup-top"><span class="damage-title">${item.emoji} ${escapeHtml(item.label)}</span><span class="status-pill ${report.status}">${STATUS[report.status] || report.status}</span></div>
+      <h3>${escapeHtml(report.address)}</h3>
+      <p>${escapeHtml(report.description)}</p>
+      <div class="popup-meta">
+        <div><small>Antigüedad</small><strong>${reportAge(report.created_at)}</strong></div>
+        <div><small>Reportado</small><strong>${formatDate(report.created_at)}</strong></div>
+      </div>
+      ${thumbs}
+      ${video}
+    </div>
+  </article>`;
+}
+
+function renderLandingStats() {
+  const total = allReports.length;
+  const pending = allReports.filter(r => ['pending', 'analysis'].includes(r.status)).length;
+  const approved = allReports.filter(r => r.status === 'approved').length;
+  if ($('statTotal')) $('statTotal').textContent = total;
+  if ($('statPending')) $('statPending').textContent = pending;
+  if ($('statApproved')) $('statApproved').textContent = approved;
+}
+
+function renderEvidenceStrip() {
+  const wrap = $('evidenceStrip');
+  if (!wrap) return;
+  const items = allReports.filter(r => getReportImages(r).length).slice(0, 10);
+  wrap.innerHTML = items.length ? items.map(r => {
+    const img = getReportImages(r)[0];
+    return `<a class="evidence-card" href="#mapa" data-report="${r.id}" style="background-image:url('${escapeHtml(img)}')">
+      <span>${escapeHtml(r.address)}</span><small>${formatDate(r.created_at)}</small>
+    </a>`;
+  }).join('') : `<div class="empty-evidence">Cuando los vecinos suban imágenes, aparecerán en esta galería.</div>`;
 }
 
 async function uploadReportImages(reportId, files) {
@@ -335,14 +412,14 @@ function escapeHtml(value = '') {
 }
 
 function reportMediaHtml(report) {
-  const images = Array.isArray(report.image_urls) ? report.image_urls : [];
+  const images = getReportImages(report);
   const gallery = images.length ? `<div class="report-gallery">${images.slice(0, 5).map((url, i) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="Imagen ${i + 1} del reclamo"></a>`).join('')}</div>` : '';
   const video = report.video_url ? `<div class="media-links"><a href="${escapeHtml(report.video_url)}" target="_blank" rel="noopener">🎬 Ver video</a></div>` : '';
   return gallery + video;
 }
 
 function adminMediaHtml(report) {
-  const images = Array.isArray(report.image_urls) ? report.image_urls : [];
+  const images = getReportImages(report);
   const parts = [];
   if (images.length) parts.push(`<a href="${escapeHtml(images[0])}" target="_blank" rel="noopener">🖼️ ${images.length}</a>`);
   if (report.video_url) parts.push(`<a href="${escapeHtml(report.video_url)}" target="_blank" rel="noopener">🎬 Video</a>`);
@@ -350,6 +427,8 @@ function adminMediaHtml(report) {
 }
 
 function renderChart() {
+  renderLandingStats();
+  renderEvidenceStrip();
   const ctx = $('reportsChart');
   if (!ctx) return;
   const counts = Object.fromEntries(Object.keys(DAMAGE_TYPES).map(k => [DAMAGE_TYPES[k].label, 0]));
@@ -386,7 +465,7 @@ function renderAdminRows() {
   allReports.forEach(r => {
     const item = DAMAGE_TYPES[r.type] || { emoji: '', label: r.type };
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${new Date(r.created_at).toLocaleString('es-AR')}</td><td>${item.emoji} ${item.label}</td><td>${escapeHtml(r.address)}</td><td>${escapeHtml(r.name)}<br><small>${escapeHtml(r.email)}</small></td><td><span class="badge ${r.status}">${STATUS[r.status]}</span></td><td>${adminMediaHtml(r)}</td><td class="row-actions"><button data-status="approved">Aprobar</button><button data-status="analysis">Analizar</button><button data-status="rejected">Rechazar</button></td>`;
+    tr.innerHTML = `<td>${formatDate(r.created_at)}</td><td>${item.emoji} ${item.label}</td><td>${escapeHtml(r.address)}</td><td>${escapeHtml(r.name)}<br><small>${escapeHtml(r.email)}</small></td><td><span class="badge ${r.status}">${STATUS[r.status]}</span></td><td>${adminMediaHtml(r)}</td><td class="row-actions"><button data-status="approved">Aprobar</button><button data-status="analysis">Analizar</button><button data-status="rejected">Rechazar</button></td>`;
     tr.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => updateStatus(r.id, btn.dataset.status)));
     tbody.appendChild(tr);
   });

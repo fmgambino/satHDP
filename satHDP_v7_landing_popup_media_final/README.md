@@ -112,3 +112,51 @@ Si tu proyecto de Supabase no permite crear buckets desde SQL, hacelo manualment
 5. Allowed MIME types: `image/jpeg`, `image/png`, `image/webp`, `image/gif`.
 
 Luego ejecutá las policies incluidas en `database/database.sql`.
+
+
+## Cambios v7
+
+- Landing inicial con scroll suave hacia el mapa.
+- Secciones informativas: por qué hacemos el mapa, evidencia, cómo funciona, compromiso y footer.
+- Popup del marcador rediseñado:
+  - Imagen principal arriba en formato 500x500 px.
+  - Tipo de daño arriba del contenido.
+  - Estado con fondo y borde por color.
+  - Antigüedad y fecha de reporte.
+  - Miniaturas y enlace de video.
+- Formulario:
+  - Hasta 5 imágenes subidas por archivo, 5MB cada una.
+  - URL opcional de imagen directa. Se guarda dentro de `image_urls`.
+  - URL opcional de video: YouTube, TikTok, Instagram o Facebook.
+- Estadísticas de landing actualizadas desde Supabase.
+- Galería “Así se ven las calles” alimentada desde imágenes de reclamos.
+
+## Cambiar imagen o video de fondo de la landing
+
+### Imagen
+Editá `styles.css`:
+
+```css
+.hero-section {
+  --hero-image: linear-gradient(...), url('assets/hero-bg.svg');
+}
+```
+
+Podés reemplazar `assets/hero-bg.svg` por `assets/hero-bg.jpg` o cualquier imagen propia.
+
+### Video
+En `index.html`, buscá:
+
+```html
+<!-- <video class="hero-video" autoplay muted loop playsinline src="assets/hero-bg.mp4"></video> -->
+```
+
+Quitá los comentarios y subí tu video como:
+
+```text
+assets/hero-bg.mp4
+```
+
+## Base de datos
+
+No necesitás una columna nueva para URL de imagen: se guarda en `reports.image_urls` junto con las imágenes subidas. Ejecutá igualmente `database/database.sql` si venís de una versión anterior para asegurar columnas, políticas y Storage.

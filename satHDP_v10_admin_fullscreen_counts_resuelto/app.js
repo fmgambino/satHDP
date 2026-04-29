@@ -7,11 +7,13 @@ const DEFAULT_DAMAGE_TYPES = {
 };
 
 let DAMAGE_TYPES = { ...DEFAULT_DAMAGE_TYPES };
-const STATUS = { pending: 'Pendiente', analysis: 'En análisis', approved: 'Aprobado', rejected: 'Rechazado' };
+const STATUS = { pending: 'Pendiente', analysis: 'En revisión', approved: 'Aprobado', rejected: 'Rechazado', resolved: 'Resuelto' };
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_VIDEO_HOSTS = ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'facebook.com', 'fb.watch'];
 let supabaseClient, map, selectedMarker, chart, allReports = [], markers = [], deferredPrompt = null, googleMapsPromise = null;
+let sliderSettings = { effect: "slide", interval: 4000, autoplay: true };
+let evidenceIndex = 0, evidenceTimer = null;
 const $ = (id) => document.getElementById(id);
 
 function initSupabase() {
@@ -181,7 +183,10 @@ async function loadReports() {
   renderMap();
   renderChart();
   renderAdminRows();
+  await renderLandingStats();
+  renderEvidenceStrip();
 }
+
 
 function filteredReports() {
   const type = $('filterType').value;
@@ -202,8 +207,7 @@ function renderMap() {
   filteredReports().forEach(report => {
     const item = DAMAGE_TYPES[report.type] || DEFAULT_DAMAGE_TYPES.bache;
     const marker = new google.maps.Marker({ position: { lat: Number(report.lat), lng: Number(report.lng) }, map, icon: svgMarker(report.type), title: `${item.label} - ${STATUS[report.status]}` });
-    const media = reportMediaHtml(report);
-    const info = new google.maps.InfoWindow({ content: `<div class="info"><strong>${item.emoji} ${item.label}</strong><p>${escapeHtml(report.address)}</p><p>${escapeHtml(report.description)}</p><small>Estado: ${STATUS[report.status]}</small>${media}</div>` });
+    const info = new google.maps.InfoWindow({ content: reportPopupHtml(report, item) });
     marker.addListener('click', () => info.open({ anchor: marker, map }));
     markers.push(marker);
   });
@@ -218,6 +222,11 @@ async function submitReport(e) {
   const files = Array.from($('images')?.files || []);
   const validation = validateImages(files);
   if (!validation.ok) return Swal.fire('Imágenes inválidas', validation.message, 'warning');
+
+  const imageUrl = $('imageUrl')?.value.trim() || '';
+  if (imageUrl && !isLikelyImageUrl(imageUrl)) {
+    return Swal.fire('URL de imagen no válida', 'Ingresá una URL directa a una imagen JPG, PNG, WEBP, GIF o SVG.', 'warning');
+  }
 
   const videoUrl = $('videoUrl').value.trim();
   if (videoUrl && !isAllowedVideoUrl(videoUrl)) {
@@ -239,14 +248,15 @@ async function submitReport(e) {
       lat: Number($('lat').value),
       lng: Number($('lng').value),
       video_url: videoUrl || null,
-      image_urls: [],
+      image_urls: imageUrl ? [imageUrl] : [],
       status: 'pending'
     };
 
     const { data, error } = await supabaseClient.from('reports').insert(payload).select('id').single();
     if (error) throw error;
 
-    const imageUrls = files.length ? await uploadReportImages(data.id, files) : [];
+    const uploadedUrls = files.length ? await uploadReportImages(data.id, files) : [];
+    const imageUrls = [...(imageUrl ? [imageUrl] : []), ...uploadedUrls].slice(0, 6);
     if (imageUrls.length) {
       const { error: updateError } = await supabaseClient.from('reports').update({ image_urls: imageUrls }).eq('id', data.id);
       if (updateError) throw updateError;
@@ -284,6 +294,137 @@ function isAllowedVideoUrl(value) {
   } catch {
     return false;
   }
+}
+
+function isLikelyImageUrl(value) {
+  try {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol)) return false;
+    return /\.(jpe?g|png|webp|gif|svg)(\?.*)?$/i.test(url.pathname + url.search);
+  } catch {
+    return false;
+  }
+}
+
+function getReportImages(report) {
+  return Array.isArray(report.image_urls) ? report.image_urls.filter(Boolean) : [];
+}
+
+function formatDate(value) {
+  return new Date(value).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function reportAge(value) {
+  const diff = Math.max(0, Date.now() - new Date(value).getTime());
+  const days = Math.floor(diff / 86400000);
+  if (days >= 365) return `${Math.floor(days / 365)} año${Math.floor(days / 365) === 1 ? '' : 's'}`;
+  if (days >= 30) return `${Math.floor(days / 30)} mes${Math.floor(days / 30) === 1 ? '' : 'es'}`;
+  if (days >= 1) return `${days} día${days === 1 ? '' : 's'}`;
+  const hours = Math.floor(diff / 3600000);
+  if (hours >= 1) return `${hours} hora${hours === 1 ? '' : 's'}`;
+  return 'Hoy';
+}
+
+function reportPopupHtml(report, item) {
+  const images = getReportImages(report);
+  const mainImage = images[0] || window.APP_CONFIG?.DEFAULT_REPORT_IMAGE || '';
+  const hero = mainImage ? `<a href="${escapeHtml(mainImage)}" target="_blank" rel="noopener"><img class="popup-main-image" src="${escapeHtml(mainImage)}" alt="Imagen principal del reclamo"></a>` : `<div class="popup-main-image empty">${item.emoji}</div>`;
+  const thumbs = images.length > 1 ? `<div class="popup-thumbs">${images.slice(1, 6).map((url, i) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="Imagen ${i + 2}"></a>`).join('')}</div>` : '';
+  const video = report.video_url ? `<a class="popup-video" href="${escapeHtml(report.video_url)}" target="_blank" rel="noopener">🎬 Ver video adjunto</a>` : '';
+  return `<article class="info popup-card">
+    ${hero}
+    <div class="popup-body">
+      <div class="popup-top"><span class="damage-title">${item.emoji} ${escapeHtml(item.label)}</span><span class="status-pill ${report.status}">${STATUS[report.status] || report.status}</span></div>
+      <h3>${escapeHtml(report.address)}</h3>
+      <p>${escapeHtml(report.description)}</p>
+      <div class="popup-meta">
+        <div><small>Antigüedad</small><strong>${reportAge(report.created_at)}</strong></div>
+        <div><small>Reportado</small><strong>${formatDate(report.created_at)}</strong></div>
+      </div>
+      ${thumbs}
+      ${video}
+    </div>
+  </article>`;
+}
+
+async function fetchCount(filterStatus = null) {
+  let query = supabaseClient.from('reports').select('id', { count: 'exact', head: true });
+  if (filterStatus) query = Array.isArray(filterStatus) ? query.in('status', filterStatus) : query.eq('status', filterStatus);
+  const { count, error } = await query;
+  if (error) throw error;
+  return count || 0;
+}
+
+async function renderLandingStats() {
+  try {
+    const [total, inReview, approved, resolved] = await Promise.all([
+      fetchCount(), fetchCount(['pending', 'analysis']), fetchCount('approved'), fetchCount('resolved')
+    ]);
+    if ($('statTotal')) $('statTotal').textContent = total;
+    if ($('statPending')) $('statPending').textContent = inReview;
+    if ($('statApproved')) $('statApproved').textContent = approved;
+    if ($('statResolved')) $('statResolved').textContent = resolved;
+  } catch (err) {
+    console.warn('No se pudieron obtener contadores directos; usando datos cargados.', err);
+    const total = allReports.length;
+    const inReview = allReports.filter(r => ['pending', 'analysis'].includes(r.status)).length;
+    const approved = allReports.filter(r => r.status === 'approved').length;
+    const resolved = allReports.filter(r => r.status === 'resolved').length;
+    if ($('statTotal')) $('statTotal').textContent = total;
+    if ($('statPending')) $('statPending').textContent = inReview;
+    if ($('statApproved')) $('statApproved').textContent = approved;
+    if ($('statResolved')) $('statResolved').textContent = resolved;
+  }
+}
+
+function renderEvidenceStrip() {
+  const wrap = $('evidenceStrip');
+  const dots = $('evidenceDots');
+  const slider = $('evidenceSlider');
+  if (!wrap) return;
+  const items = allReports.filter(r => getReportImages(r).length || r.video_url).slice(0, 12);
+  if (slider) { slider.classList.remove('effect-slide', 'effect-fade', 'effect-zoom'); slider.classList.add('effect-' + (sliderSettings.effect || 'slide')); }
+  if (!items.length) { wrap.innerHTML = '<div class="empty-evidence">Cuando los vecinos suban imágenes o videos, aparecerán en este slider.</div>'; if (dots) dots.innerHTML = ''; return; }
+  if (evidenceIndex >= items.length) evidenceIndex = 0;
+  wrap.innerHTML = items.map((r, i) => evidenceSlideHtml(r, i === evidenceIndex)).join('');
+  if (dots) dots.innerHTML = items.map((_, i) => '<button class="' + (i === evidenceIndex ? 'active' : '') + '" data-slide="' + i + '" aria-label="Ver reclamo ' + (i + 1) + '"></button>').join('');
+  dots?.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => { evidenceIndex = Number(btn.dataset.slide); renderEvidenceStrip(); restartEvidenceAutoplay(); }));
+  restartEvidenceAutoplay();
+}
+
+function evidenceSlideHtml(report, active) {
+  const images = getReportImages(report);
+  const img = images[0] || window.APP_CONFIG?.DEFAULT_REPORT_IMAGE || '';
+  const item = DAMAGE_TYPES[report.type] || { emoji: '📍', label: report.type };
+  const videoEmbed = report.video_url ? videoEmbedHtml(report.video_url) : '';
+  const media = videoEmbed || (img ? '<img src="' + escapeHtml(img) + '" alt="Imagen del reclamo">' : '<div class="popup-main-image empty">' + item.emoji + '</div>');
+  const videoLink = report.video_url ? '<a class="evidence-video-link" href="' + escapeHtml(report.video_url) + '" target="_blank" rel="noopener">🎬 Ver video</a>' : '';
+  return '<article class="evidence-slide ' + (active ? 'active' : '') + '"><div class="evidence-card"><div class="evidence-media">' + media + videoLink + '</div><div class="evidence-info"><span class="eyebrow">' + item.emoji + ' ' + escapeHtml(item.label) + '</span><h3>' + escapeHtml(report.address) + '</h3><p>' + escapeHtml(report.description || 'Sin descripción') + '</p><span class="status-pill ' + report.status + '">' + (STATUS[report.status] || report.status) + '</span><div class="evidence-meta"><div><small>Antigüedad</small><strong>' + reportAge(report.created_at) + '</strong></div><div><small>Reportado</small><strong>' + formatDate(report.created_at) + '</strong></div></div></div></div></article>';
+}
+
+function videoEmbedHtml(urlValue) {
+  try {
+    const url = new URL(urlValue);
+    const host = url.hostname.replace(/^www./, '').toLowerCase();
+    let src = '';
+    if (host === 'youtu.be') src = 'https://www.youtube.com/embed/' + url.pathname.replace('/', '');
+    if (host.endsWith('youtube.com')) { const v = url.searchParams.get('v'); if (v) src = 'https://www.youtube.com/embed/' + v; }
+    if (!src) return '';
+    return '<iframe src="' + escapeHtml(src) + '" title="Video del reclamo" loading="lazy" allowfullscreen></iframe>';
+  } catch { return ''; }
+}
+
+function nextEvidenceSlide(delta = 1) {
+  const total = allReports.filter(r => getReportImages(r).length || r.video_url).slice(0, 12).length;
+  if (!total) return;
+  evidenceIndex = (evidenceIndex + delta + total) % total;
+  renderEvidenceStrip();
+}
+
+function restartEvidenceAutoplay() {
+  if (evidenceTimer) clearInterval(evidenceTimer);
+  if (!sliderSettings.autoplay) return;
+  evidenceTimer = setInterval(() => nextEvidenceSlide(1), Number(sliderSettings.interval) || 4000);
 }
 
 async function uploadReportImages(reportId, files) {
@@ -335,14 +476,14 @@ function escapeHtml(value = '') {
 }
 
 function reportMediaHtml(report) {
-  const images = Array.isArray(report.image_urls) ? report.image_urls : [];
+  const images = getReportImages(report);
   const gallery = images.length ? `<div class="report-gallery">${images.slice(0, 5).map((url, i) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="Imagen ${i + 1} del reclamo"></a>`).join('')}</div>` : '';
   const video = report.video_url ? `<div class="media-links"><a href="${escapeHtml(report.video_url)}" target="_blank" rel="noopener">🎬 Ver video</a></div>` : '';
   return gallery + video;
 }
 
 function adminMediaHtml(report) {
-  const images = Array.isArray(report.image_urls) ? report.image_urls : [];
+  const images = getReportImages(report);
   const parts = [];
   if (images.length) parts.push(`<a href="${escapeHtml(images[0])}" target="_blank" rel="noopener">🖼️ ${images.length}</a>`);
   if (report.video_url) parts.push(`<a href="${escapeHtml(report.video_url)}" target="_blank" rel="noopener">🎬 Video</a>`);
@@ -350,6 +491,8 @@ function adminMediaHtml(report) {
 }
 
 function renderChart() {
+  renderLandingStats();
+  renderEvidenceStrip();
   const ctx = $('reportsChart');
   if (!ctx) return;
   const counts = Object.fromEntries(Object.keys(DAMAGE_TYPES).map(k => [DAMAGE_TYPES[k].label, 0]));
@@ -363,6 +506,33 @@ function renderChart() {
     data: { labels: Object.keys(counts), datasets: [{ label: 'Reclamos', data: Object.values(counts) }] },
     options: { responsive: true, plugins: { legend: { display: true } }, scales: $('chartType').value === 'pie' ? {} : { y: { beginAtZero: true, ticks: { precision: 0 } } } }
   });
+}
+
+async function loadSliderSettings() {
+  try {
+    const local = localStorage.getItem('satHDP_sliderSettings');
+    if (local) sliderSettings = { ...sliderSettings, ...JSON.parse(local) };
+    const { data, error } = await supabaseClient.from('app_settings').select('value').eq('key', 'evidence_slider').maybeSingle();
+    if (!error && data?.value) sliderSettings = { ...sliderSettings, ...data.value };
+  } catch (err) { console.warn('Usando configuración local del slider.', err.message); }
+  fillSliderSettingsForm();
+}
+
+function fillSliderSettingsForm() {
+  if ($('sliderEffect')) $('sliderEffect').value = sliderSettings.effect || 'slide';
+  if ($('sliderInterval')) $('sliderInterval').value = Number(sliderSettings.interval) || 4000;
+  if ($('sliderAutoplay')) $('sliderAutoplay').checked = sliderSettings.autoplay !== false;
+}
+
+async function saveSliderSettings(e) {
+  e?.preventDefault();
+  sliderSettings = { effect: $('sliderEffect').value, interval: Number($('sliderInterval').value) || 4000, autoplay: $('sliderAutoplay').checked };
+  localStorage.setItem('satHDP_sliderSettings', JSON.stringify(sliderSettings));
+  try {
+    await supabaseClient.from('app_settings').upsert({ key: 'evidence_slider', value: sliderSettings }, { onConflict: 'key' });
+  } catch (err) { console.warn('No se pudo guardar en Supabase app_settings.', err.message); }
+  renderEvidenceStrip();
+  Swal.fire('Slider actualizado', 'La configuración del slider fue guardada.', 'success');
 }
 
 async function adminLogin() {
@@ -386,7 +556,7 @@ function renderAdminRows() {
   allReports.forEach(r => {
     const item = DAMAGE_TYPES[r.type] || { emoji: '', label: r.type };
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${new Date(r.created_at).toLocaleString('es-AR')}</td><td>${item.emoji} ${item.label}</td><td>${escapeHtml(r.address)}</td><td>${escapeHtml(r.name)}<br><small>${escapeHtml(r.email)}</small></td><td><span class="badge ${r.status}">${STATUS[r.status]}</span></td><td>${adminMediaHtml(r)}</td><td class="row-actions"><button data-status="approved">Aprobar</button><button data-status="analysis">Analizar</button><button data-status="rejected">Rechazar</button></td>`;
+    tr.innerHTML = `<td>${formatDate(r.created_at)}</td><td>${item.emoji} ${item.label}</td><td>${escapeHtml(r.address)}</td><td>${escapeHtml(r.name)}<br><small>${escapeHtml(r.email)}</small></td><td><span class="badge ${r.status}">${STATUS[r.status]}</span></td><td>${adminMediaHtml(r)}</td><td class="row-actions"><button data-status="approved">Aprobar</button><button data-status="analysis">En revisión</button><button data-status="resolved">Resuelto</button><button data-status="rejected">Rechazar</button></td>`;
     tr.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => updateStatus(r.id, btn.dataset.status)));
     tbody.appendChild(tr);
   });
@@ -444,8 +614,11 @@ function bindEvents() {
   $('logoutBtn').addEventListener('click', async () => { await supabaseClient.auth.signOut(); await checkSession(); });
   $('refreshAdminBtn').addEventListener('click', async () => { await loadDamageTypes(); await loadReports(); });
   $('damageTypeForm').addEventListener('submit', (e) => { e.preventDefault(); saveDamageType({ key: $('damageKey').value.trim(), label: $('damageLabel').value.trim(), emoji: $('damageEmoji').value.trim(), color: $('damageColor').value, active: $('damageActive').checked }); });
+  $('sliderSettingsForm')?.addEventListener('submit', saveSliderSettings);
+  $('evidencePrev')?.addEventListener('click', () => { nextEvidenceSlide(-1); restartEvidenceAutoplay(); });
+  $('evidenceNext')?.addEventListener('click', () => { nextEvidenceSlide(1); restartEvidenceAutoplay(); });
   $('themeToggle').addEventListener('click', toggleTheme);
-  $('installBtn').addEventListener('click', async () => { if (deferredPrompt) { deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; $('installBtn').classList.add('hidden'); } });
+  $('installBtn').addEventListener('click', promptInstallPWA);
 }
 
 function initRealtime() {
@@ -466,6 +639,18 @@ function toggleTheme() {
   if (map) map.setOptions({ styles: next === 'dark' ? darkMapStyle : [] });
 }
 
+async function promptInstallPWA() {
+  if (!deferredPrompt) {
+    return Swal.fire({ title: 'Instalar MUNIPA-HDP', text: 'La app ya está instalada o el navegador todavía no habilitó la instalación.', imageUrl: 'https://i.ibb.co/mCRz1z5D/logo-MUNIPA-HDP.png', imageWidth: 96, imageHeight: 96, confirmButtonText: 'Entendido' });
+  }
+  const res = await Swal.fire({ title: 'Instalar MUNIPA-HDP', text: 'Agregá la PWA a tu dispositivo para reportar y consultar reclamos más rápido.', imageUrl: 'https://i.ibb.co/mCRz1z5D/logo-MUNIPA-HDP.png', imageWidth: 110, imageHeight: 110, showCancelButton: true, confirmButtonText: 'Instalar', cancelButtonText: 'Ahora no' });
+  if (!res.isConfirmed) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  $('installBtn')?.classList.add('hidden');
+}
+
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
@@ -484,6 +669,7 @@ const darkMapStyle = [
   initTheme();
   initSupabase();
   bindEvents();
+  try { await loadSliderSettings(); } catch (err) { console.warn(err); }
   try { await initMap(); } catch (err) { console.error(err); }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 })();

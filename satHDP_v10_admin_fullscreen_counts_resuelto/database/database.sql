@@ -164,3 +164,38 @@ values
 ('cano_roto', 'Vecina Demo', 'vecina@ejemplo.com', null, 'Av. Mate de Luna y Camino del Perú', 'Pérdida de agua sobre calzada.', -26.8175, -65.2670, 'pending'),
 ('arbol_caido', 'Usuario Demo', 'usuario@ejemplo.com', null, 'Parque 9 de Julio', 'Árbol caído bloqueando paso peatonal.', -26.8212, -65.1901, 'analysis')
 on conflict do nothing;
+
+-- v8: configuración administrable del slider de evidencia.
+create table if not exists public.app_settings (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  updated_at timestamp with time zone not null default now()
+);
+
+alter table public.app_settings enable row level security;
+
+drop policy if exists "Cualquiera puede ver configuraciones públicas" on public.app_settings;
+drop policy if exists "Usuarios autenticados administran configuraciones" on public.app_settings;
+
+create policy "Cualquiera puede ver configuraciones públicas"
+on public.app_settings for select to anon, authenticated
+using (true);
+
+create policy "Usuarios autenticados administran configuraciones"
+on public.app_settings for all to authenticated
+using (true) with check (true);
+
+insert into public.app_settings (key, value)
+values ('evidence_slider', '{"effect":"slide","interval":4000,"autoplay":true}'::jsonb)
+on conflict (key) do nothing;
+
+
+-- v10: estado Resuelto y contadores públicos reales
+ALTER TABLE public.reports DROP CONSTRAINT IF EXISTS reports_status_check;
+ALTER TABLE public.reports ADD CONSTRAINT reports_status_check CHECK (status IN ('pending','analysis','approved','rejected','resolved'));
+
+-- Para que los contadores de landing sean reales desde Supabase con anon key.
+-- Ajustá estas policies si necesitás ocultar datos sensibles en producción.
+ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "reports public read for map and counters" ON public.reports;
+CREATE POLICY "reports public read for map and counters" ON public.reports FOR SELECT TO anon USING (true);
