@@ -198,7 +198,7 @@ Para que los contadores públicos muestren todos los estados con la anon key, ej
 - Cards de “Quién impulsa esta iniciativa” más grandes.
 - Popup del mapa con imagen recortada a 400x400px.
 - Alerta SweetAlert2 automática para instalar PWA en móviles.
-- Favicon, logo e icono PWA configurados con `h/img/8.svg`.
+- Favicon, logo e icono PWA configurados con `http://munipahdp.com/img/logoMunipa.svg`.
 
 ### Nota sobre el icono PWA
 Algunos navegadores requieren que los íconos del manifest estén servidos por HTTPS y desde el mismo dominio. Si el navegador no toma el SVG remoto, descargá el logo y reemplazá `icons/icon.svg`, luego actualizá `manifest.webmanifest`.
@@ -213,3 +213,19 @@ ALTER TABLE reports
 ADD CONSTRAINT reports_status_check 
 CHECK (status IN ('pending','analysis','approved','rejected','resolved'));
 ```
+
+## Cambios v13
+- Popup del reclamo del mapa centrado y con imagen principal recortada 400x400 px.
+- SweetAlert2 de instalación PWA al ingresar en escritorio y mobile.
+- Manifest corregido con íconos PNG locales para que Chrome/Edge puedan disparar `beforeinstallprompt`.
+- Favicon, logo header e ícono instalable apuntan a `icons/icon-192.png` / `icons/icon-512.png`.
+
+### Importante para probar instalación PWA
+Chrome/Edge solo muestran la instalación real cuando:
+1. El sitio corre en HTTPS o `localhost`.
+2. El manifest es válido.
+3. El service worker está activo.
+4. No fue instalada antes.
+5. No bloqueaste previamente el prompt.
+
+Si probás una versión anterior, borrá cache y service workers: DevTools > Application > Service Workers > Unregister, y luego recargá con Ctrl+F5.

@@ -53,7 +53,7 @@ html{scroll-behavior:smooth;scroll-padding-top:86px}
 @media (max-width:850px){.cafecito-header{display:none}.evidence-card{grid-template-columns:1fr}.evidence-slider{min-height:620px}.evidence-track{min-height:590px}.slider-btn.prev{left:4px}.slider-btn.next{right:4px}.slider-form{grid-template-columns:1fr}.impulso-card{flex-direction:column;align-items:flex-start}.popup-main-image{height:320px}}
 
 /* v10 UX/UI fixes */
-.brand-logo{width:75px;height:55px;border-radius:10px;object-fit:cover;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.brand-logo{width:42px;height:42px;border-radius:10px;object-fit:cover;box-shadow:0 6px 18px rgba(0,0,0,.18)}
 .avatar-img{width:74px;height:74px;border-radius:50%;object-fit:cover;border:3px solid color-mix(in srgb,var(--brand) 60%,#fff);box-shadow:0 10px 30px rgba(2,6,23,.18);flex:0 0 auto}
 .hero-stats{grid-template-columns:repeat(4,minmax(110px,1fr))}
 .badge.resolved,.status-pill.resolved{background:#ccfbf1;color:#0f766e;border-color:#14b8a6}
@@ -107,8 +107,47 @@ html{scroll-behavior:smooth;scroll-padding-top:86px}
 .impulso-card{padding:34px!important;min-height:190px}
 .impulso-card .avatar-img{width:96px!important;height:96px!important}
 .impulso-card h3{font-size:22px}.impulso-card p{font-size:16px;line-height:1.55}
-.whatsapp-float{position:fixed;right:22px;bottom:22px;z-index:9999;width:62px;height:62px;border-radius:50%;display:grid;place-items:center;text-decoration:none;background:#f2f2f2;color:white;box-shadow:0 18px 38px rgba(34,197,94,.38);animation:waPulse 1.8s infinite ease-in-out;overflow:hidden}
+.whatsapp-float{position:fixed;right:22px;bottom:22px;z-index:9999;width:62px;height:62px;border-radius:50%;display:grid;place-items:center;text-decoration:none;background:#22c55e;color:white;box-shadow:0 18px 38px rgba(34,197,94,.38);animation:waPulse 1.8s infinite ease-in-out;overflow:hidden}
 .whatsapp-float img{width:38px;height:38px;display:block}.whatsapp-float:hover{transform:translateY(-4px) scale(1.04)}
 @keyframes waPulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.45),0 18px 38px rgba(34,197,94,.38)}50%{box-shadow:0 0 0 14px rgba(34,197,94,0),0 18px 38px rgba(34,197,94,.38)}}
 @media (max-width:980px){#adminBox{padding:0 12px 18px}.admin-list-toolbar{align-items:flex-start}.bulk-actions{width:100%}.admin-table{min-width:980px}.popup-main-image{height:340px!important}.impulso-grid{grid-template-columns:1fr!important}.hero-content{padding-top:72px}.topbar{gap:8px}.top-actions{max-width:100%;overflow-x:auto}}
 @media (max-width:560px){.hero-section{min-height:calc(100dvh - 72px)!important}.hero-content h2{font-size:clamp(38px,12vw,58px)!important}.hero-stats{grid-template-columns:repeat(2,1fr)!important}.popup-main-image{height:300px!important}.admin-list-toolbar{display:grid;grid-template-columns:1fr}.btn.mini{width:auto}.whatsapp-float{right:14px;bottom:14px;width:54px;height:54px}.whatsapp-float img{width:34px;height:34px}.impulso-card{padding:24px!important}}
+
+/* v13: popup centrado + PWA install UX */
+.gm-style .gm-style-iw-c{
+  padding:0!important;
+  border-radius:24px!important;
+  max-width:460px!important;
+}
+.gm-style .gm-style-iw-d{
+  overflow:auto!important;
+  max-height:82vh!important;
+}
+.popup-card{
+  width:min(440px,86vw)!important;
+  max-width:440px!important;
+  margin:0 auto!important;
+  text-align:left!important;
+  border-radius:22px!important;
+  overflow:hidden!important;
+}
+.popup-main-image{
+  width:400px!important;
+  height:400px!important;
+  max-width:calc(100% - 32px)!important;
+  margin:16px auto 0!important;
+  object-fit:cover!important;
+  object-position:center!important;
+  border-radius:18px!important;
+  display:block!important;
+}
+.popup-body{padding:16px 18px 20px!important;}
+.popup-top{align-items:center!important;}
+.install-logo-wrap{display:flex;justify-content:center;align-items:center;margin:6px auto 18px;}
+.install-logo-wrap img{width:112px;height:112px;object-fit:contain;border-radius:24px;box-shadow:0 16px 40px rgba(15,23,42,.14);}
+.install-swal-popup{border-radius:24px!important;}
+@media (max-width:560px){
+  .gm-style .gm-style-iw-c{max-width:92vw!important;}
+  .popup-card{width:88vw!important;max-width:88vw!important;}
+  .popup-main-image{width:calc(100% - 24px)!important;height:320px!important;margin-top:12px!important;}
+}

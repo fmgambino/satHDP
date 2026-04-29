@@ -753,20 +753,19 @@ function isMobileDevice() {
 
 async function promptInstallPWA() {
   if (isPWAInstalled()) return;
-  const html = deferredPrompt
+  const canInstall = !!deferredPrompt;
+  const message = canInstall
     ? "Instalá la PWA en tu dispositivo para reportar daños, consultar el mapa y acceder más rápido."
     : (isMobileDevice()
-        ? "Para instalarla, abrí el menú del navegador y elegí <b>Agregar a pantalla de inicio</b> o <b>Instalar app</b>."
-        : "Tu navegador todavía no habilitó la instalación automática. Usá el botón <b>Instalar PWA</b> o el ícono de instalación de la barra del navegador cuando aparezca.");
+        ? "Para instalarla, abrí el menú del navegador y elegí <b>Agregar a pantalla de inicio</b> o <b>Instalar app</b>. En Chrome/Edge también puede aparecer el ícono de instalación en la barra."
+        : "Cuando el navegador habilite la instalación, presioná <b>Instalar PWA</b> o el ícono de instalación de la barra. Verificá que estés usando HTTPS o localhost, manifest válido y service worker activo.");
   const res = await Swal.fire({
     title: "Instalar MUNIPA-HDP",
-    html,
-    imageUrl: "/img/8.svg",
-    imageWidth: 112,
-    imageHeight: 112,
+    html: `<div class="install-logo-wrap"><img src="icons/icon-192.png" alt="MUNIPA-HDP"></div><p>${message}</p>`,
     showCancelButton: true,
-    confirmButtonText: deferredPrompt ? "Instalar app" : "Entendido",
+    confirmButtonText: canInstall ? "Instalar app" : "Entendido",
     cancelButtonText: "Ahora no",
+    allowOutsideClick: false,
     customClass: { popup: "install-swal-popup" }
   });
   if (!res.isConfirmed || !deferredPrompt) return;
@@ -778,7 +777,7 @@ async function promptInstallPWA() {
 
 function offerInstallPWA(force = false) {
   if (isPWAInstalled()) return;
-  const key = "satHDP_install_offered_v12b";
+  const key = "satHDP_install_offered_v13";
   if (!force && sessionStorage.getItem(key)) return;
   sessionStorage.setItem(key, "1");
   setTimeout(() => promptInstallPWA(), isMobileDevice() ? 900 : 1400);
@@ -789,6 +788,11 @@ window.addEventListener("beforeinstallprompt", e => {
   deferredPrompt = e;
   $("installBtn")?.classList.remove("hidden");
   offerInstallPWA(true);
+});
+window.addEventListener("load", () => {
+  if (!isPWAInstalled()) {
+    setTimeout(() => offerInstallPWA(false), isMobileDevice() ? 1200 : 1800);
+  }
 });
 const darkMapStyle = [
   { elementType: 'geometry', stylers: [{ color: '#1f2937' }] },
