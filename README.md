@@ -1,76 +1,78 @@
-# Mapa Interactivo de Reclamos - PWA
+# SAT HDP - Mapa Interactivo de Reclamos PWA
 
-Primera versión estática lista para GitHub Pages con Google Maps, Supabase, SweetAlert2 y Chart.js.
+Versión refactorizada con Google Maps + Places Autocomplete, Supabase, Panel Administrador, tipos de daños dinámicos, filtros, gráficos Chart.js, SweetAlert2, PWA y modo claro/oscuro.
 
-## 1. Configurar claves
+## 1. Base de datos Supabase
+
+1. Abrí tu proyecto de Supabase.
+2. Entrá a **SQL Editor > New query**.
+3. Pegá y ejecutá completo el archivo `database/database.sql`.
+
+El script crea `reports` y `damage_types`, elimina la restricción vieja de tipos fijos si existía, agrega políticas RLS y carga datos demo.
+
+## 2. Usuario administrador
+
+En Supabase > **Authentication > Users**, creá un usuario con email y contraseña. Ese usuario ingresa al **Panel administrador**.
+
+## 3. Configurar Supabase en la PWA
+
 Editá `config.js`:
 
 ```js
 window.APP_CONFIG = {
-  SUPABASE_URL: 'https://TU-PROYECTO.supabase.co',
+  SUPABASE_URL: 'TU_SUPABASE_URL',
   SUPABASE_ANON_KEY: 'TU_SUPABASE_ANON_KEY',
   GOOGLE_MAPS_API_KEY: 'TU_GOOGLE_MAPS_API_KEY',
   MAP_CENTER: { lat: -26.8241, lng: -65.2226 },
-  MAP_ZOOM: 13
+  MAP_ZOOM: 13,
+  PLACES_RADIUS_METERS: 30000
 };
 ```
 
-## 2. Crear tabla en Supabase
-En SQL Editor ejecutá:
+Los datos salen de **Supabase > Project Settings > API**.
 
-```sql
-create table if not exists public.reports (
-  id uuid primary key default gen_random_uuid(),
-  created_at timestamptz not null default now(),
-  type text not null check (type in ('cano_roto','falta_asfalto','bache','poste_caido','arbol_caido')),
-  name text not null,
-  email text not null,
-  phone text,
-  address text not null,
-  description text not null,
-  lat double precision not null,
-  lng double precision not null,
-  status text not null default 'pending' check (status in ('pending','analysis','approved','rejected'))
-);
+## 4. Conectar Google Maps
 
-alter table public.reports enable row level security;
+1. Entrá a Google Cloud Console.
+2. Creá o seleccioná un proyecto.
+3. Habilitá facturación si Google la solicita.
+4. En **APIs & Services > Library**, activá:
+   - **Maps JavaScript API**
+   - **Places API**
+5. En **APIs & Services > Credentials**, creá una **API key**.
+6. Restringí la key por HTTP referrers:
+   - Local: `http://localhost:*/*`
+   - GitHub Pages: `https://TU_USUARIO.github.io/*`
+   - Dominio propio: `https://tudominio.com/*`
+7. Pegá la key en `config.js` en `GOOGLE_MAPS_API_KEY`.
 
-create policy "Cualquiera puede crear reclamos"
-on public.reports for insert
-to anon, authenticated
-with check (status = 'pending');
+La app usa `libraries=places`, necesario para que el buscador del mapa y el campo Dirección funcionen con autocompletado de Google Maps en tiempo real.
 
-create policy "Cualquiera puede ver reclamos"
-on public.reports for select
-to anon, authenticated
-using (true);
+## 5. Activar Realtime en Supabase
 
-create policy "Admins autenticados pueden actualizar estados"
-on public.reports for update
-to authenticated
-using (true)
-with check (true);
-```
+Opcional pero recomendado:
 
-## 3. Crear usuario administrador
-En Supabase > Authentication > Users, creá el email y contraseña del administrador. Con ese usuario podrás entrar al panel.
+Supabase > **Database > Replication** > activar para:
 
-## 4. Publicar en GitHub Pages
-1. Crear repositorio.
-2. Subir todos los archivos.
-3. Ir a Settings > Pages.
-4. Source: Deploy from branch.
-5. Branch: `main` / root.
-6. Abrir la URL publicada.
+- `reports`
+- `damage_types`
 
-## Funcionalidades incluidas
-- PWA instalable con service worker.
-- Mapa Google Maps responsivo.
-- Alta de reclamos desde formulario lateral.
-- Marcadores SVG con emojis por tipo.
-- Filtros por tipo, estado y búsqueda.
-- Panel admin con login Supabase Auth.
-- Aprobar, analizar o rechazar reclamos.
-- Gráficos de torta, barra o línea con Chart.js.
-- Alertas con SweetAlert2.
-- Modo claro/oscuro con toggle de sol y luna.
+## 6. Publicar en GitHub Pages
+
+1. Subí todos los archivos al repositorio.
+2. GitHub > **Settings > Pages**.
+3. Source: `Deploy from a branch`.
+4. Branch: `main` y folder `/root`.
+5. Guardá y abrí la URL generada.
+
+## 7. Agregar nuevos tipos de daños
+
+Entrá al **Panel administrador > Tipos de daños** y completá:
+
+- Clave: `luminaria_rota`
+- Nombre: `Luminaria rota`
+- Emoji: `💡`
+- Color: `#facc15`
+- Activo: marcado
+
+La clave solo admite minúsculas, números y guion bajo.
