@@ -7,5 +7,7 @@ window.APP_CONFIG = {
   GOOGLE_MAPS_API_KEY: 'AIzaSyCmzR5POCqdoiZRpIRzRcness-Az4i7xXc',
   MAP_CENTER: { lat: -26.8241, lng: -65.2226 },
   MAP_ZOOM: 13,
-  PLACES_RADIUS_METERS: 30000
+  PLACES_RADIUS_METERS: 30000,
+  // Opcional: limita sugerencias por país. Argentina = 'ar'. Usá null para global.
+  PLACES_COUNTRY: 'ar'
 };

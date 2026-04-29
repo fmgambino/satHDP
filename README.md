@@ -76,3 +76,42 @@ Entrá al **Panel administrador > Tipos de daños** y completá:
 - Activo: marcado
 
 La clave solo admite minúsculas, números y guion bajo.
+
+
+## Corrección Google Maps / buscador
+
+Esta versión corrige el error:
+
+`Cannot set properties of null (setting 'src')`
+
+Ahora `app.js` crea dinámicamente el script de Google Maps, por lo que no depende de un `<script id="googleMapsScript">` existente en el HTML.
+
+### Cómo conectar Google Maps
+
+1. Entrá a Google Cloud Console.
+2. Creá o seleccioná un proyecto.
+3. Activá estas APIs:
+   - Maps JavaScript API
+   - Places API
+   - Geocoding API
+4. Creá una API Key en **APIs y servicios > Credenciales**.
+5. En **Restricciones de aplicación**, elegí **Sitios web HTTP**.
+6. Agregá tus dominios permitidos:
+   - `http://localhost:*/*` para pruebas locales.
+   - `https://TU_USUARIO.github.io/*`
+   - `https://TU_USUARIO.github.io/TU_REPOSITORIO/*`
+7. En **Restricciones de API**, limitá la key a:
+   - Maps JavaScript API
+   - Places API
+   - Geocoding API
+8. Abrí `config.js` y pegá la clave en:
+
+```js
+GOOGLE_MAPS_API_KEY: 'TU_CLAVE_REAL'
+```
+
+9. Publicá en GitHub Pages. Google Maps y Places funcionan mejor en HTTPS; GitHub Pages ya usa HTTPS.
+
+### Buscador interactivo
+
+El campo “Buscar en Google Maps y reclamos” usa Google Places Autocomplete en tiempo real. También podés escribir una dirección y presionar Enter; la app intenta geocodificarla y centrar el mapa.

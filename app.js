@@ -18,9 +18,22 @@ function initSupabase() {
 }
 
 function loadGoogleMaps() {
-  const script = $('googleMapsScript');
-  const key = window.APP_CONFIG.GOOGLE_MAPS_API_KEY;
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&callback=initMap`;
+  const key = window.APP_CONFIG?.GOOGLE_MAPS_API_KEY;
+  if (!key || key === 'TU_GOOGLE_MAPS_API_KEY') {
+    Swal.fire('Falta configurar Google Maps', 'Abrí config.js y cargá GOOGLE_MAPS_API_KEY con una clave válida que tenga Maps JavaScript API y Places API habilitadas.', 'warning');
+    return;
+  }
+  if (window.google?.maps) { window.initMap(); return; }
+  let script = document.getElementById('googleMapsScript');
+  if (!script) {
+    script = document.createElement('script');
+    script.id = 'googleMapsScript';
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+  }
+  script.onerror = () => Swal.fire('Google Maps no cargó', 'Verificá la API key, las APIs habilitadas, las restricciones HTTP y que el sitio se publique por HTTPS.', 'error');
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&callback=initMap`;
 }
 
 window.initMap = async function () {
@@ -40,12 +53,30 @@ window.initMap = async function () {
 };
 
 function initGoogleAutocomplete() {
+  if (!google.maps.places) {
+    Swal.fire('Places API no disponible', 'Habilitá Places API en Google Cloud para que funcione el buscador interactivo.', 'warning');
+    return;
+  }
   const bounds = new google.maps.Circle({ center: window.APP_CONFIG.MAP_CENTER, radius: window.APP_CONFIG.PLACES_RADIUS_METERS || 30000 }).getBounds();
-  const options = { bounds, strictBounds: false, fields: ['formatted_address', 'geometry', 'name'] };
+  const options = {
+    bounds,
+    strictBounds: false,
+    fields: ['formatted_address', 'geometry', 'name'],
+    componentRestrictions: window.APP_CONFIG.PLACES_COUNTRY ? { country: window.APP_CONFIG.PLACES_COUNTRY } : undefined
+  };
   searchAutocomplete = new google.maps.places.Autocomplete($('searchInput'), options);
   searchAutocomplete.addListener('place_changed', () => handlePlace(searchAutocomplete.getPlace(), false));
   addressAutocomplete = new google.maps.places.Autocomplete($('address'), options);
   addressAutocomplete.addListener('place_changed', () => handlePlace(addressAutocomplete.getPlace(), true));
+}
+
+async function geocodeTypedPlace(inputId) {
+  const query = $(inputId).value.trim();
+  if (!query || !window.google?.maps) return;
+  const geocoder = new google.maps.Geocoder();
+  geocoder.geocode({ address: query, bounds: map.getBounds() }, (results, status) => {
+    if (status === 'OK' && results?.[0]) handlePlace({ geometry: results[0].geometry, formatted_address: results[0].formatted_address, name: query }, inputId === 'address');
+  });
 }
 
 function handlePlace(place, fillAddress) {
@@ -195,12 +226,13 @@ function bindEvents() {
   $('locateBtn').addEventListener('click', () => navigator.geolocation?.getCurrentPosition(pos => { const { latitude, longitude } = pos.coords; map.setCenter({ lat: latitude, lng: longitude }); map.setZoom(17); setSelectedLocation(latitude, longitude); }, () => Swal.fire('Ubicación', 'No se pudo obtener tu ubicación.', 'warning')));
   $('adminToggleBtn').addEventListener('click', async () => { $('adminDialog').showModal(); await checkSession(); });
   $('closeAdminBtn').addEventListener('click', () => $('adminDialog').close());
-  $('loginBtn').addEventListener('click', adminLogin);
+  $('loginBox').addEventListener('submit', (e) => { e.preventDefault(); adminLogin(); });
   $('logoutBtn').addEventListener('click', async () => { await supabaseClient.auth.signOut(); await checkSession(); });
   $('refreshAdminBtn').addEventListener('click', async () => { await loadDamageTypes(); await loadReports(); });
   $('damageTypeForm').addEventListener('submit', (e) => { e.preventDefault(); saveDamageType({ key: $('damageKey').value.trim(), label: $('damageLabel').value.trim(), emoji: $('damageEmoji').value.trim(), color: $('damageColor').value, active: $('damageActive').checked }); });
   $('themeToggle').addEventListener('click', toggleTheme);
   $('installBtn').addEventListener('click', async () => { if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; $('installBtn').classList.add('hidden'); } });
+  ['searchInput','address'].forEach(id => $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); geocodeTypedPlace(id); } }));
 }
 
 function initRealtime() {

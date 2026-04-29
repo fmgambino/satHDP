@@ -8,3 +8,9 @@
 .admin-type-manager h3{margin:0}.type-form{display:grid;grid-template-columns:1.2fr 1.3fr .7fr 64px auto auto;gap:10px;align-items:center;margin:12px 0}.type-form input[type="color"]{height:44px;padding:4px}.check{display:flex;align-items:center;gap:6px;color:var(--text);font-weight:700}.check input{width:auto}.types-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}.type-chip{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:16px;padding:10px;background:var(--panel)}.type-chip small{display:block;color:var(--muted);font-size:12px}.type-emoji{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;border:2px solid rgba(255,255,255,.75)}.type-chip button{border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:10px;padding:7px;margin-left:auto}.type-chip button+button{margin-left:0}.pac-container{z-index:99999;border-radius:14px;margin-top:6px;background:var(--panel);color:var(--text);border:1px solid var(--border);box-shadow:var(--shadow)}.pac-item{padding:8px 10px;color:var(--text);border-color:var(--border)}.pac-item-query{color:var(--text)}
 @media (max-width:850px){.type-form{grid-template-columns:1fr 1fr}.type-form .btn{grid-column:1/-1}.admin-type-manager{margin:0 10px 14px}}
 @media (max-width:560px){.type-form{grid-template-columns:1fr}.type-chip{flex-wrap:wrap}}
+
+/* Google Places Autocomplete dropdown sobre el mapa/dialog */
+.pac-container{z-index:999999!important;background:var(--card)!important;border:1px solid var(--border)!important;border-radius:12px!important;box-shadow:0 16px 40px rgba(0,0,0,.35)!important;}
+.pac-item{padding:10px 12px!important;color:var(--text)!important;border-top:1px solid var(--border)!important;}
+.pac-item-query{color:var(--text)!important;}
+.pac-matched{color:var(--primary)!important;}

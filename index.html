@@ -69,12 +69,12 @@
   <dialog id="adminDialog" class="admin-dialog">
     <div class="admin-header"><div><h2>Panel del Administrador</h2><p class="muted">Aprobar, analizar o rechazar solicitudes y administrar tipos de daños.</p></div><button id="closeAdminBtn" class="icon-btn">✕</button></div>
 
-    <div id="loginBox" class="login-box">
-      <label>Email administrador</label><input id="adminEmail" type="email" placeholder="admin@municipio.gob" />
-      <label>Contraseña</label><input id="adminPassword" type="password" placeholder="••••••••" />
-      <button id="loginBtn" class="btn primary">Ingresar</button>
+    <form id="loginBox" class="login-box">
+      <label>Email administrador</label><input id="adminEmail" type="email" autocomplete="username" placeholder="admin@municipio.gob" />
+      <label>Contraseña</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="••••••••" />
+      <button id="loginBtn" class="btn primary" type="submit">Ingresar</button>
       <p class="muted small">Usa Supabase Auth. Crea el usuario admin desde Supabase.</p>
-    </div>
+    </form>
 
     <div id="adminBox" class="hidden">
       <div class="admin-actions"><button id="refreshAdminBtn" class="btn ghost">Actualizar</button><button id="logoutBtn" class="btn danger">Salir</button></div>
@@ -98,6 +98,5 @@
 
   <script src="config.js"></script>
   <script src="app.js"></script>
-  <script async defer id="googleMapsScript"></script>
 </body>
 </html>
