@@ -46,39 +46,6 @@ let adminPage = 1, adminPageSize = 10, adminStatusFilter = "all";
 let adminSelectedIds = new Set();
 const $ = (id) => document.getElementById(id);
 
-// v21: SweetAlert2 dentro del dialog nativo del panel administrador.
-function setupAdminSweetAlertLayer() {
-  if (!window.Swal || window.__munipaSwalLayerReady) return;
-  window.__munipaSwalLayerReady = true;
-  const originalFire = window.Swal.fire.bind(window.Swal);
-  window.Swal.fire = (...args) => {
-    const dialog = document.getElementById('adminDialog');
-    const adminOpen = dialog && dialog.open;
-    let options;
-    if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null) {
-      options = { ...args[0] };
-    } else {
-      options = { title: args[0], html: args[1], icon: args[2] };
-    }
-    if (adminOpen && !options.target) {
-      const previousDidOpen = options.didOpen;
-      options.target = dialog;
-      options.heightAuto = false;
-      options.scrollbarPadding = false;
-      options.customClass = {
-        ...(options.customClass || {}),
-        container: `${options.customClass?.container || ''} admin-swal-container`.trim(),
-        popup: `${options.customClass?.popup || ''} admin-swal-popup`.trim()
-      };
-      options.didOpen = (popup) => {
-        popup?.focus?.();
-        if (typeof previousDidOpen === 'function') previousDidOpen(popup);
-      };
-    }
-    return originalFire(options);
-  };
-}
-
 function initSupabase() {
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = window.APP_CONFIG || {};
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -224,6 +191,15 @@ function renderLocalityOptions() {
   const items = province ? (ARGENTINA_LOCATIONS[province] || []) : [];
   items.forEach(name => locality.appendChild(new Option(name, name)));
   locality.disabled = !province;
+}
+
+
+function notifyToast(title, icon = 'success') {
+  if (!window.Swal) return;
+  Swal.fire({ toast: true, position: 'top-end', icon, title, showConfirmButton: false, timer: 2600, timerProgressBar: true });
+}
+function swalError(title, message) {
+  Swal.fire({ icon: 'error', title, text: message || 'Ocurrió un error inesperado.' });
 }
 
 function selectedAdministrativeQuery() {
@@ -678,15 +654,22 @@ function fillSliderSettingsForm() {
 }
 
 async function saveSliderSettings(e) {
-  e?.preventDefault();
+  if (e?.preventDefault) e.preventDefault();
   sliderSettings = { effect: $('sliderEffect').value, interval: Number($('sliderInterval').value) || 4000, autoplay: $('sliderAutoplay').checked };
   localStorage.setItem('satHDP_sliderSettings', JSON.stringify(sliderSettings));
+  Swal.fire({ title: 'Guardando slider...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
   try {
-    await supabaseClient.from('app_settings').upsert({ key: 'evidence_slider', value: sliderSettings }, { onConflict: 'key' });
-  } catch (err) { console.warn('No se pudo guardar en Supabase app_settings.', err.message); }
-  renderEvidenceStrip();
-  Swal.fire('Slider actualizado', 'La configuración del slider fue guardada.', 'success');
+    const { error } = await supabaseClient.from('app_settings').upsert({ key: 'evidence_slider', value: sliderSettings }, { onConflict: 'key' });
+    if (error) throw error;
+    renderEvidenceStrip();
+    Swal.close();
+    notifyToast('Slider actualizado', 'success');
+  } catch (err) {
+    Swal.close();
+    swalError('No se pudo guardar el slider', err.message);
+  }
 }
+
 
 async function adminLogin() {
   const { error } = await supabaseClient.auth.signInWithPassword({ email: $('adminEmail').value, password: $('adminPassword').value });
@@ -765,36 +748,69 @@ function toggleSelectCurrentPage(checked) {
   updateAdminSelectionUI();
 }
 
-async function bulkUpdateStatus(status) {
-  const ids = Array.from(adminSelectedIds);
-  if (!ids.length) return Swal.fire('Sin selección', 'Seleccioná uno o más reclamos.', 'info');
-  const { isConfirmed } = await Swal.fire({ title: `¿Marcar ${ids.length} reclamo(s) como ${STATUS[status]}?`, icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, actualizar', cancelButtonText: 'Cancelar' });
-  if (!isConfirmed) return;
-  const { error } = await supabaseClient.from('reports').update({ status }).in('id', ids);
-  if (error) return Swal.fire('Error', error.message, 'error');
-  adminSelectedIds.clear();
-  await loadReports();
-  Swal.fire('Actualizado', 'Los reclamos seleccionados fueron actualizados.', 'success');
+async function updateReportsStatus(ids, status) {
+  const payload = { status, updated_at: new Date().toISOString() };
+  const bulk = await supabaseClient.from('reports').update(payload).in('id', ids);
+  if (!bulk.error) return;
+  for (const id of ids) {
+    const single = await supabaseClient.from('reports').update(payload).eq('id', id);
+    if (single.error) throw single.error;
+  }
 }
 
-async function bulkDeleteReports() {
-  const ids = Array.from(adminSelectedIds);
+async function bulkUpdateStatus(status, evt) {
+  if (evt?.preventDefault) evt.preventDefault();
+  const ids = Array.from(adminSelectedIds).filter(Boolean);
+  if (!ids.length) return Swal.fire('Sin selección', 'Seleccioná uno o más reclamos.', 'info');
+  const label = STATUS[status] || status;
+  const { isConfirmed } = await Swal.fire({ title: `Actualizar ${ids.length} reclamo${ids.length === 1 ? '' : 's'}`, text: `Se marcarán como: ${label}.`, icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, actualizar', cancelButtonText: 'Cancelar' });
+  if (!isConfirmed) return;
+  Swal.fire({ title: 'Actualizando reclamos...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  try {
+    await updateReportsStatus(ids, status);
+    adminSelectedIds.clear();
+    await loadReports();
+    Swal.close();
+    notifyToast(`${ids.length} reclamo${ids.length === 1 ? '' : 's'} actualizado${ids.length === 1 ? '' : 's'}`, 'success');
+  } catch (error) {
+    Swal.close();
+    swalError('No se pudo actualizar', error.message);
+  }
+}
+
+async function bulkDeleteReports(evt) {
+  if (evt?.preventDefault) evt.preventDefault();
+  const ids = Array.from(adminSelectedIds).filter(Boolean);
   if (!ids.length) return Swal.fire('Sin selección', 'Seleccioná uno o más reclamos.', 'info');
   const { isConfirmed } = await Swal.fire({ title: `¿Eliminar ${ids.length} reclamo(s)?`, text: 'Esta acción no se puede deshacer.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar' });
   if (!isConfirmed) return;
-  const { error } = await supabaseClient.from('reports').delete().in('id', ids);
-  if (error) return Swal.fire('Error', error.message, 'error');
-  adminSelectedIds.clear();
-  await loadReports();
-  Swal.fire('Eliminado', 'Los reclamos seleccionados fueron eliminados.', 'success');
+  Swal.fire({ title: 'Eliminando reclamos...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  try {
+    const { error } = await supabaseClient.from('reports').delete().in('id', ids);
+    if (error) throw error;
+    adminSelectedIds.clear();
+    await loadReports();
+    Swal.close();
+    notifyToast('Reclamos eliminados', 'success');
+  } catch (error) {
+    Swal.close();
+    swalError('No se pudo eliminar', error.message);
+  }
 }
 
 async function updateStatus(id, status) {
-  const { error } = await supabaseClient.from('reports').update({ status }).eq('id', id);
-  if (error) return Swal.fire('Error', error.message, 'error');
-  Swal.fire('Actualizado', `Solicitud marcada como: ${STATUS[status]}`, 'success');
-  await loadReports();
+  Swal.fire({ title: 'Actualizando reclamo...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  try {
+    await updateReportsStatus([id], status);
+    await loadReports();
+    Swal.close();
+    notifyToast(`Solicitud marcada como: ${STATUS[status]}`, 'success');
+  } catch (error) {
+    Swal.close();
+    swalError('No se pudo actualizar', error.message);
+  }
 }
+
 
 function adminExportRows() {
   return adminStatusFilter === 'all' ? allReports : allReports.filter(r => r.status === adminStatusFilter);
@@ -906,18 +922,26 @@ function renderDamageTypesAdmin() {
 }
 
 async function saveDamageType(values) {
-  const row = { key: values.key, label: values.label, emoji: values.emoji, color: values.color, active: values.active, sort_order: 100 };
-  const { error } = await supabaseClient.from('damage_types').upsert(row, { onConflict: 'key' });
-  if (error) return Swal.fire('Error', error.message, 'error');
-  Swal.fire('Guardado', 'El tipo de daño fue actualizado.', 'success');
-  $('damageTypeForm').reset();
-  $('damageKey').readOnly = false;
-  $('damageColor').value = '#38bdf8';
-  $('damageActive').checked = true;
-  await loadDamageTypes();
-  renderMap();
-  renderChart();
+  const row = { key: values.key, label: values.label, emoji: values.emoji, color: values.color, active: values.active, sort_order: 100, updated_at: new Date().toISOString() };
+  Swal.fire({ title: 'Guardando tipo de daño...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  try {
+    const { error } = await supabaseClient.from('damage_types').upsert(row, { onConflict: 'key' });
+    if (error) throw error;
+    $('damageTypeForm').reset();
+    $('damageKey').readOnly = false;
+    $('damageColor').value = '#38bdf8';
+    $('damageActive').checked = true;
+    await loadDamageTypes();
+    renderMap();
+    renderChart();
+    Swal.close();
+    notifyToast('Tipo de daño actualizado', 'success');
+  } catch (error) {
+    Swal.close();
+    swalError('No se pudo guardar el tipo de daño', error.message);
+  }
 }
+
 
 
 function socialIconSvg(name) {
@@ -1005,10 +1029,10 @@ function bindEvents() {
     $('adminNext' + pos)?.addEventListener('click', () => { adminPage += 1; renderAdminRows(); });
     $('adminPageSize' + pos)?.addEventListener('change', (e) => setAdminPageSize(e.target.value));
     $("adminStatusFilter" + pos)?.addEventListener("change", (e) => { adminStatusFilter = e.target.value; adminPage = 1; adminSelectedIds.clear(); ["Top","Bottom"].forEach(p => { const el = $("adminStatusFilter" + p); if (el) el.value = adminStatusFilter; }); renderAdminRows(); });
-    $('bulkApprove' + pos)?.addEventListener('click', () => bulkUpdateStatus('approved'));
-    $('bulkAnalysis' + pos)?.addEventListener('click', () => bulkUpdateStatus('analysis'));
-    $('bulkResolve' + pos)?.addEventListener('click', () => bulkUpdateStatus('resolved'));
-    $('bulkReject' + pos)?.addEventListener('click', () => bulkUpdateStatus('rejected'));
+    $('bulkApprove' + pos)?.addEventListener('click', (e) => bulkUpdateStatus('approved', e));
+    $('bulkAnalysis' + pos)?.addEventListener('click', (e) => bulkUpdateStatus('analysis', e));
+    $('bulkResolve' + pos)?.addEventListener('click', (e) => bulkUpdateStatus('resolved', e));
+    $('bulkReject' + pos)?.addEventListener('click', (e) => bulkUpdateStatus('rejected', e));
     $('bulkDelete' + pos)?.addEventListener('click', bulkDeleteReports);
   });
   ['selectAllTop','selectAllBottom','selectAllHead'].forEach(id => $(id)?.addEventListener('change', (e) => toggleSelectCurrentPage(e.target.checked)));
@@ -1111,7 +1135,6 @@ const darkMapStyle = [
 ];
 
 (async function boot() {
-  setupAdminSweetAlertLayer();
   initTheme();
   initSupabase();
   bindEvents();

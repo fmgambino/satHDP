@@ -16,10 +16,10 @@ window.APP_CONFIG = {
   DEFAULT_REPORT_IMAGE: '',
   // Enlaces de redes sociales. Reemplazá '#' por tus URLs oficiales.
   SOCIAL_LINKS: {
-    facebook: '#',
-    instagram: '#',
-    tiktok: '#',
-    youtube: '#',
+    facebook: 'https://www.facebook.com/electronica.gambino.tuc/',
+    instagram: 'https://www.instagram.com/fmgambin0/',
+    tiktok: 'https://www.tiktok.com/@electronicagambino',
+    youtube: 'https://www.youtube.com/c/Electr%C3%B3nicaGambino',
     telegram: '#',
     shareText: 'Mapa de Reclamos MUNIPA-HDP'
   }
