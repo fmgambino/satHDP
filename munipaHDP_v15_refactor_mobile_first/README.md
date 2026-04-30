@@ -213,9 +213,3 @@ ALTER TABLE reports
 ADD CONSTRAINT reports_status_check 
 CHECK (status IN ('pending','analysis','approved','rejected','resolved'));
 ```
-
-## Cambios v16
-- Barra de búsqueda con filtro por provincia argentina y localidad.
-- El mapa inicia intentando tomar la ubicación del dispositivo; si no hay permisos o falla, abre centrado en Argentina.
-- Places/Google Maps queda restringido a Argentina y sesgado por provincia/localidad seleccionada.
-- Flecha roja flotante centrada abajo para indicar scroll.

@@ -15,28 +15,20 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="topbar-main">
-      <div class="brand">
-        <img class="brand-logo" src="/img/8.svg" alt="MUNIPA-HDP logo" />
-        <div>
-          <h1>Mapa de Reclamos</h1>
-          <p>Reportá y visualizá sectores dañados en tiempo real</p>
-        </div>
-      </div>
-      <div class="header-quick-actions">
-        <div class="social-icons header-social" aria-label="Redes sociales del proyecto"></div>
-        <button id="mobileMenuBtn" class="hamburger-btn" aria-label="Abrir menú" aria-controls="mainNav" aria-expanded="false"><span></span><span></span><span></span></button>
+    <div class="brand">
+      <img class="brand-logo" src="/img/8.svg" alt="MUNIPA-HDP logo" />
+      <div>
+        <h1>Mapa de Reclamos</h1>
+        <p>Reportá y visualizá sectores dañados en tiempo real</p>
       </div>
     </div>
-    <nav id="mainNav" class="top-actions" aria-label="Navegación principal">
+    <nav class="top-actions">
       <a href="#inicio" class="nav-link">Inicio</a>
       <a href="#mapa" class="nav-link">Mapa</a>
       <a href="#como-funciona" class="nav-link">Cómo funciona</a>
-      <div class="social-icons nav-social" aria-label="Redes sociales del proyecto"></div>
       <a class="cafecito-header" href="https://cafecito.app/fmgambino" rel="noopener" target="_blank" title="Invitame un café"><img srcset="https://cdn.cafecito.app/imgs/buttons/button_3.png 1x, https://cdn.cafecito.app/imgs/buttons/button_3_2x.png 2x, https://cdn.cafecito.app/imgs/buttons/button_3_3.75x.png 3.75x" src="https://cdn.cafecito.app/imgs/buttons/button_3.png" alt="Invitame un café en cafecito.app" /></a>
       <button id="installBtn" class="btn ghost hidden">Instalar PWA</button>
-      <button id="adminToggleBtn" class="icon-action-btn" aria-label="Abrir panel administrador" title="Panel administrador"><span class="svg-icon user-icon" aria-hidden="true"></span></button>
-      <button id="fullscreenBtn" class="icon-action-btn" aria-label="Pantalla completa" title="Pantalla completa"><span class="svg-icon fullscreen-icon" aria-hidden="true"></span></button>
+      <button id="adminToggleBtn" class="btn">Panel administrador</button>
       <button id="themeToggle" class="theme-toggle" aria-label="Cambiar tema">
         <span class="sun" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4V2m0 20v-2m8-8h2M2 12h2m14.95 6.95 1.41 1.41M3.64 3.64l1.41 1.41m0 13.9-1.41 1.41M20.36 3.64l-1.41 1.41"/><circle cx="12" cy="12" r="4"/></svg></span>
         <span class="moon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg></span>
@@ -75,8 +67,6 @@
       <div class="toolbar card">
         <div class="filter-group"><label>Tipo</label><select id="filterType"><option value="all">Todos</option></select></div>
         <div class="filter-group"><label>Estado</label><select id="filterStatus"><option value="approved">Aprobados</option><option value="resolved">Resueltos</option><option value="pending">Pendientes</option><option value="analysis">En revisión</option><option value="rejected">Rechazados</option><option value="all">Todos</option></select></div>
-        <div class="filter-group"><label>Provincia</label><select id="provinceFilter"><option value="">Toda Argentina</option></select></div>
-        <div class="filter-group"><label>Localidad</label><select id="localityFilter"><option value="">Todas</option></select></div>
         <div class="filter-group grow"><label>Buscar en Google Maps</label><div id="searchHost" class="places-host"></div></div>
         <button id="locateBtn" class="btn ghost">Mi ubicación</button>
       </div>
@@ -165,7 +155,6 @@
   <footer class="site-footer">
     <h2>Una ciudad mejor también se construye mostrando lo que está mal</h2>
     <div class="hero-actions"><a class="btn ghost" href="#mapa">Recorrer el mapa</a><a class="btn primary" href="#formulario">Reportar daño</a></div>
-    <div class="social-icons footer-social" aria-label="Redes sociales del proyecto"></div>
     <div class="footer-brand">🤬 MUNIPA-HDP© 2026</div><p>Tucumán · Argentina · by <a href="https://ar.linkedin.com/in/fmgambino" target="_blank" rel="noopener">Ing. Fernando Gambino</a></p><p>Todos los Derechos Registrados</p><a class="cafecito-footer" href="https://cafecito.app/fmgambino" rel="noopener" target="_blank"><img srcset="https://cdn.cafecito.app/imgs/buttons/button_3.png 1x, https://cdn.cafecito.app/imgs/buttons/button_3_2x.png 2x, https://cdn.cafecito.app/imgs/buttons/button_3_3.75x.png 3.75x" src="https://cdn.cafecito.app/imgs/buttons/button_3.png" alt="Invitame un café en cafecito.app" /></a>
   </footer>
 

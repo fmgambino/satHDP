@@ -6,21 +6,11 @@ window.APP_CONFIG = {
   SUPABASE_ANON_KEY: 'sb_publishable_WkaMiLMlK2og6pcutR5w1w_rWab9GBj',
   SUPABASE_STORAGE_BUCKET: 'report-images',
   GOOGLE_MAPS_API_KEY: 'AIzaSyCmzR5POCqdoiZRpIRzRcness-Az4i7xXc',
-  MAP_CENTER: { lat: -38.4161, lng: -63.6167 },
-  MAP_ZOOM: 5,
-  DEVICE_MAP_ZOOM: 15,
+  MAP_CENTER: { lat: -26.8241, lng: -65.2226 },
+  MAP_ZOOM: 13,
   PLACES_RADIUS_METERS: 30000,
   // Opcional: limita sugerencias por país. Argentina = 'ar'. Usá null para global.
   PLACES_COUNTRY: 'ar',
   // Imagen fallback para popup cuando el reclamo no tiene imágenes.
-  DEFAULT_REPORT_IMAGE: '',
-  // Enlaces de redes sociales. Reemplazá '#' por tus URLs oficiales.
-  SOCIAL_LINKS: {
-    facebook: 'https://www.facebook.com/electronica.gambino.tuc/',
-    instagram: 'https://www.instagram.com/fmgambin0/',
-    tiktok: 'https://www.tiktok.com/@electronicagambino',
-    youtube: 'https://www.youtube.com/c/Electr%C3%B3nicaGambino',
-    telegram: '#',
-    shareText: 'Mapa de Reclamos MUNIPA-HDP'
-  }
+  DEFAULT_REPORT_IMAGE: ''
 };

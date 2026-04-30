@@ -888,16 +888,8 @@ async function saveDamageType(values) {
 
 
 function socialIconSvg(name) {
-  // SVG gratuitos embebidos (estilo Simple Icons / Bootstrap Icons) para evitar dependencias pagas.
-  const icons = {
-    facebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.412c0-3.024 1.792-4.697 4.533-4.697 1.313 0 2.686.236 2.686.236v2.97h-1.513c-1.49 0-1.956.93-1.956 1.886v2.266h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073Z"/></svg>',
-    instagram: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.8 2h8.4A5.8 5.8 0 0 1 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8A5.8 5.8 0 0 1 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2Zm-.2 2A3.6 3.6 0 0 0 4 7.6v8.8A3.6 3.6 0 0 0 7.6 20h8.8a3.6 3.6 0 0 0 3.6-3.6V7.6A3.6 3.6 0 0 0 16.4 4H7.6Zm9.65 1.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/></svg>',
-    tiktok: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.75 2c.39 3.05 2.1 4.87 5.1 5.06v3.43c-1.74.17-3.26-.4-5-1.47v6.42c0 8.15-8.88 10.7-12.45 4.86-2.3-3.77-.9-10.38 6.5-10.64v3.62c-.57.09-1.18.23-1.73.42-1.66.56-2.6 1.6-2.34 3.43.5 3.49 6.9 4.52 6.37-2.3V2h3.55Z"/></svg>',
-    youtube: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.12C19.55 3.58 12 3.58 12 3.58s-7.55 0-9.4.5A3 3 0 0 0 .5 6.2 31.3 31.3 0 0 0 0 12a31.3 31.3 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.12c1.85.5 9.4.5 9.4.5s7.55 0 9.4-.5a3 3 0 0 0 2.1-2.12A31.3 31.3 0 0 0 24 12a31.3 31.3 0 0 0-.5-5.8ZM9.55 15.56V8.44L15.82 12l-6.27 3.56Z"/></svg>',
-    telegram: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.04 15.47 8.64 21c.57 0 .82-.25 1.12-.55l2.69-2.59 5.57 4.1c1.02.57 1.74.27 2.02-.95L23.7 3.79c.33-1.54-.55-2.14-1.54-1.77L.64 10.33c-1.47.58-1.45 1.42-.25 1.8l5.5 1.72L18.66 5.8c.6-.4 1.15-.18.7.23L9.04 15.47Z"/></svg>',
-    share: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7a3.27 3.27 0 0 0 0-1.39l7.05-4.11A3 3 0 1 0 15 5c0 .24.03.47.08.69L8.03 9.8a3 3 0 1 0 0 4.4l7.12 4.17c-.05.2-.08.41-.08.63a2.93 2.93 0 1 0 2.93-2.92Z"/></svg>'
-  };
-  return icons[name] || '';
+  const icons = { facebook: 'f', instagram: '◎', tiktok: '♪', youtube: '▶', telegram: '➤', share: '↗' };
+  return icons[name] || name;
 }
 
 function renderSocialIcons() {
@@ -952,14 +944,6 @@ function bindEvents() {
     }, () => Swal.fire('Ubicación', 'No se pudo obtener tu ubicación. Se mantiene el mapa de Argentina.', 'warning'), { enableHighAccuracy: true, timeout: 9000, maximumAge: 60000 });
   });
   $('adminToggleBtn').addEventListener('click', async () => { $('adminDialog').showModal(); await checkSession(); });
-  $('fullscreenBtn')?.addEventListener('click', async () => {
-    try {
-      if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
-      else await document.exitFullscreen();
-    } catch (_) {
-      Swal.fire('Pantalla completa', 'El navegador no permitió cambiar a pantalla completa.', 'info');
-    }
-  });
   $('closeAdminBtn').addEventListener('click', () => $('adminDialog').close());
   $('loginBox').addEventListener('submit', (e) => { e.preventDefault(); adminLogin(); });
   $('logoutBtn').addEventListener('click', async () => { await supabaseClient.auth.signOut(); await checkSession(); });

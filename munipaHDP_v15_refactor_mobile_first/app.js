@@ -11,34 +11,6 @@ const STATUS = { pending: 'Pendiente', analysis: 'En revisión', approved: 'Apro
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_VIDEO_HOSTS = ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'facebook.com', 'fb.watch'];
-const ARGENTINA_LOCATIONS = {
-  "Buenos Aires": ["La Plata", "Mar del Plata", "Bahía Blanca", "Tandil", "Olavarría", "Junín", "Pergamino", "San Nicolás", "Quilmes", "Morón", "Avellaneda", "Lanús", "Lomas de Zamora", "San Isidro", "Tigre"],
-  "CABA": ["Ciudad Autónoma de Buenos Aires"],
-  "Catamarca": ["San Fernando del Valle de Catamarca", "Belén", "Andalgalá", "Tinogasta", "Santa María"],
-  "Chaco": ["Resistencia", "Presidencia Roque Sáenz Peña", "Villa Ángela", "Charata", "Quitilipi"],
-  "Chubut": ["Rawson", "Comodoro Rivadavia", "Trelew", "Puerto Madryn", "Esquel"],
-  "Córdoba": ["Córdoba", "Río Cuarto", "Villa María", "San Francisco", "Carlos Paz", "Alta Gracia"],
-  "Corrientes": ["Corrientes", "Goya", "Mercedes", "Paso de los Libres", "Curuzú Cuatiá"],
-  "Entre Ríos": ["Paraná", "Concordia", "Gualeguaychú", "Concepción del Uruguay", "Gualeguay"],
-  "Formosa": ["Formosa", "Clorinda", "Pirané", "El Colorado", "Las Lomitas"],
-  "Jujuy": ["San Salvador de Jujuy", "Palpalá", "Perico", "Libertador General San Martín", "Humahuaca"],
-  "La Pampa": ["Santa Rosa", "General Pico", "Toay", "Realicó", "Eduardo Castex"],
-  "La Rioja": ["La Rioja", "Chilecito", "Aimogasta", "Chamical", "Chepes"],
-  "Mendoza": ["Mendoza", "San Rafael", "Godoy Cruz", "Guaymallén", "Las Heras", "Luján de Cuyo"],
-  "Misiones": ["Posadas", "Oberá", "Eldorado", "Puerto Iguazú", "Apóstoles"],
-  "Neuquén": ["Neuquén", "Cutral Có", "Plottier", "Zapala", "San Martín de los Andes"],
-  "Río Negro": ["Viedma", "General Roca", "Bariloche", "Cipolletti", "Villa Regina"],
-  "Salta": ["Salta", "San Ramón de la Nueva Orán", "Tartagal", "Metán", "Rosario de la Frontera"],
-  "San Juan": ["San Juan", "Rawson", "Rivadavia", "Chimbas", "Santa Lucía"],
-  "San Luis": ["San Luis", "Villa Mercedes", "Merlo", "La Punta", "Juana Koslay"],
-  "Santa Cruz": ["Río Gallegos", "Caleta Olivia", "El Calafate", "Puerto Deseado", "Pico Truncado"],
-  "Santa Fe": ["Santa Fe", "Rosario", "Rafaela", "Venado Tuerto", "Reconquista", "Santo Tomé"],
-  "Santiago del Estero": ["Santiago del Estero", "La Banda", "Termas de Río Hondo", "Frías", "Añatuya"],
-  "Tierra del Fuego": ["Ushuaia", "Río Grande", "Tolhuin"],
-  "Tucumán": ["San Miguel de Tucumán", "Yerba Buena", "Tafí Viejo", "Banda del Río Salí", "Concepción", "Aguilares", "Famaillá", "Monteros", "Lules", "Simoca", "Bella Vista", "Alderetes"]
-};
-let searchAutocomplete = null, addressAutocomplete = null, searchPlaceElement = null, addressPlaceElement = null, geocoder = null;
-
 let supabaseClient, map, selectedMarker, chart, allReports = [], markers = [], deferredPrompt = null, googleMapsPromise = null;
 let sliderSettings = { effect: "slide", interval: 4000, autoplay: true };
 let evidenceIndex = 0, evidenceTimer = null;
@@ -97,11 +69,8 @@ async function initMap() {
     fullscreenControl: true,
     styles: document.documentElement.dataset.theme === 'dark' ? darkMapStyle : []
   });
-  geocoder = new google.maps.Geocoder();
   map.addListener('click', (e) => setSelectedLocation(e.latLng.lat(), e.latLng.lng()));
-  initLocationFilters();
   await initGoogleAutocomplete();
-  zoomToDeviceLocation(false);
   await loadDamageTypes();
   await loadReports();
   initRealtime();
@@ -131,8 +100,6 @@ function createPlaceAutocompleteElement(hostId, placeholder, fillAddress) {
   el.setAttribute('aria-label', placeholder);
   if (window.APP_CONFIG.PLACES_COUNTRY) el.includedRegionCodes = [window.APP_CONFIG.PLACES_COUNTRY];
   host.appendChild(el);
-  if (hostId === 'searchHost') searchPlaceElement = el; else addressPlaceElement = el;
-  applyPlaceBias();
 
   el.addEventListener('gmp-select', async (event) => {
     const prediction = event.placePrediction || event.detail?.placePrediction;
@@ -155,95 +122,11 @@ function createLegacyAutocomplete(hostId, inputId, fillAddress) {
     componentRestrictions: window.APP_CONFIG.PLACES_COUNTRY ? { country: window.APP_CONFIG.PLACES_COUNTRY } : undefined
   };
   const autocomplete = new google.maps.places.Autocomplete(input, options);
-  if (hostId === 'searchHost') searchAutocomplete = autocomplete; else addressAutocomplete = autocomplete;
-  applyPlaceBias();
   autocomplete.addListener('place_changed', () => {
     const place = autocomplete.getPlace();
     if (!place?.geometry?.location) return;
     handlePlace({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng(), address: place.formatted_address || place.name || input.value }, fillAddress);
   });
-}
-
-
-function initLocationFilters() {
-  const province = $('provinceFilter');
-  const locality = $('localityFilter');
-  if (!province || !locality) return;
-  province.innerHTML = '<option value="">Toda Argentina</option>';
-  Object.keys(ARGENTINA_LOCATIONS).sort((a, b) => a.localeCompare(b, 'es')).forEach(name => province.appendChild(new Option(name, name)));
-  province.addEventListener('change', () => {
-    renderLocalityOptions();
-    focusMapByAdministrativeFilter();
-    applyPlaceBias();
-  });
-  locality.addEventListener('change', () => {
-    focusMapByAdministrativeFilter();
-    applyPlaceBias();
-  });
-  renderLocalityOptions();
-}
-
-function renderLocalityOptions() {
-  const province = $('provinceFilter')?.value || '';
-  const locality = $('localityFilter');
-  if (!locality) return;
-  locality.innerHTML = '<option value="">Todas</option>';
-  const items = province ? (ARGENTINA_LOCATIONS[province] || []) : [];
-  items.forEach(name => locality.appendChild(new Option(name, name)));
-  locality.disabled = !province;
-}
-
-function selectedAdministrativeQuery() {
-  const province = $('provinceFilter')?.value || '';
-  const locality = $('localityFilter')?.value || '';
-  if (locality && province) return `${locality}, ${province}, Argentina`;
-  if (province) return `${province}, Argentina`;
-  return 'Argentina';
-}
-
-function focusMapByAdministrativeFilter() {
-  if (!geocoder || !map) return;
-  geocoder.geocode({ address: selectedAdministrativeQuery(), region: 'AR' }, (results, status) => {
-    if (status !== 'OK' || !results?.[0]) return;
-    const geometry = results[0].geometry;
-    if (geometry.viewport) map.fitBounds(geometry.viewport);
-    else {
-      map.setCenter(geometry.location);
-      map.setZoom($('localityFilter')?.value ? 13 : ($('provinceFilter')?.value ? 8 : 5));
-    }
-    applyPlaceBias(geometry.viewport || null, geometry.location || null);
-  });
-}
-
-function applyPlaceBias(viewport = null, location = null) {
-  try {
-    if (!map && !viewport) return;
-    const bounds = viewport || map?.getBounds?.() || null;
-    [searchAutocomplete, addressAutocomplete].filter(Boolean).forEach(ac => {
-      if (bounds) ac.setBounds(bounds);
-      if (ac.setOptions) ac.setOptions({ strictBounds: Boolean($('provinceFilter')?.value) });
-    });
-    const bias = bounds || (location ? { center: location, radius: 45000 } : null);
-    [searchPlaceElement, addressPlaceElement].filter(Boolean).forEach(el => {
-      if (bias) el.locationBias = bias;
-      el.includedRegionCodes = ['ar'];
-    });
-  } catch (err) {
-    console.warn('No se pudo aplicar sesgo de ubicación a Places.', err);
-  }
-}
-
-function zoomToDeviceLocation(selectPoint = false) {
-  if (!navigator.geolocation || !map) return;
-  navigator.geolocation.getCurrentPosition(pos => {
-    const { latitude, longitude } = pos.coords;
-    map.setCenter({ lat: latitude, lng: longitude });
-    map.setZoom(window.APP_CONFIG.DEVICE_MAP_ZOOM || 15);
-    if (selectPoint) setSelectedLocation(latitude, longitude);
-  }, () => {
-    map.setCenter(window.APP_CONFIG.MAP_CENTER || { lat: -38.4161, lng: -63.6167 });
-    map.setZoom(window.APP_CONFIG.MAP_ZOOM || 5);
-  }, { enableHighAccuracy: true, timeout: 7000, maximumAge: 120000 });
 }
 
 function handlePlace(place, fillAddress) {
@@ -886,80 +769,18 @@ async function saveDamageType(values) {
   renderChart();
 }
 
-
-function socialIconSvg(name) {
-  // SVG gratuitos embebidos (estilo Simple Icons / Bootstrap Icons) para evitar dependencias pagas.
-  const icons = {
-    facebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.412c0-3.024 1.792-4.697 4.533-4.697 1.313 0 2.686.236 2.686.236v2.97h-1.513c-1.49 0-1.956.93-1.956 1.886v2.266h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073Z"/></svg>',
-    instagram: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.8 2h8.4A5.8 5.8 0 0 1 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8A5.8 5.8 0 0 1 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2Zm-.2 2A3.6 3.6 0 0 0 4 7.6v8.8A3.6 3.6 0 0 0 7.6 20h8.8a3.6 3.6 0 0 0 3.6-3.6V7.6A3.6 3.6 0 0 0 16.4 4H7.6Zm9.65 1.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/></svg>',
-    tiktok: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.75 2c.39 3.05 2.1 4.87 5.1 5.06v3.43c-1.74.17-3.26-.4-5-1.47v6.42c0 8.15-8.88 10.7-12.45 4.86-2.3-3.77-.9-10.38 6.5-10.64v3.62c-.57.09-1.18.23-1.73.42-1.66.56-2.6 1.6-2.34 3.43.5 3.49 6.9 4.52 6.37-2.3V2h3.55Z"/></svg>',
-    youtube: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.12C19.55 3.58 12 3.58 12 3.58s-7.55 0-9.4.5A3 3 0 0 0 .5 6.2 31.3 31.3 0 0 0 0 12a31.3 31.3 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.12c1.85.5 9.4.5 9.4.5s7.55 0 9.4-.5a3 3 0 0 0 2.1-2.12A31.3 31.3 0 0 0 24 12a31.3 31.3 0 0 0-.5-5.8ZM9.55 15.56V8.44L15.82 12l-6.27 3.56Z"/></svg>',
-    telegram: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.04 15.47 8.64 21c.57 0 .82-.25 1.12-.55l2.69-2.59 5.57 4.1c1.02.57 1.74.27 2.02-.95L23.7 3.79c.33-1.54-.55-2.14-1.54-1.77L.64 10.33c-1.47.58-1.45 1.42-.25 1.8l5.5 1.72L18.66 5.8c.6-.4 1.15-.18.7.23L9.04 15.47Z"/></svg>',
-    share: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7a3.27 3.27 0 0 0 0-1.39l7.05-4.11A3 3 0 1 0 15 5c0 .24.03.47.08.69L8.03 9.8a3 3 0 1 0 0 4.4l7.12 4.17c-.05.2-.08.41-.08.63a2.93 2.93 0 1 0 2.93-2.92Z"/></svg>'
-  };
-  return icons[name] || '';
-}
-
-function renderSocialIcons() {
-  const links = window.APP_CONFIG?.SOCIAL_LINKS || {};
-  const items = [['facebook','Facebook'],['instagram','Instagram'],['tiktok','TikTok'],['youtube','YouTube'],['telegram','Telegram'],['share','Compartir']];
-  const html = items.map(([key, label]) => {
-    const href = key === 'share' ? '#' : (links[key] || '#');
-    const target = key === 'share' || href === '#' ? '_self' : '_blank';
-    return '<a class="social-btn social-' + key + '" href="' + escapeHtml(href) + '" target="' + target + '" rel="noopener" aria-label="' + label + '" title="' + label + '" data-social="' + key + '">' + socialIconSvg(key) + '</a>';
-  }).join('');
-  document.querySelectorAll('.social-icons').forEach(el => el.innerHTML = html);
-  document.querySelectorAll('[data-social="share"]').forEach(btn => btn.addEventListener('click', async (e) => {
-    e.preventDefault();
-    const shareData = { title: document.title, text: links.shareText || 'Mapa de Reclamos', url: location.href };
-    try {
-      if (navigator.share) await navigator.share(shareData);
-      else {
-        await navigator.clipboard.writeText(location.href);
-        Swal.fire('Enlace copiado', 'El link del mapa fue copiado al portapapeles.', 'success');
-      }
-    } catch (_) {}
-  }));
-}
-
-function initMobileMenu() {
-  const btn = $('mobileMenuBtn');
-  const header = document.querySelector('.topbar');
-  if (!btn || !header) return;
-  const closeMenu = () => { header.classList.remove('menu-open'); btn.setAttribute('aria-expanded', 'false'); };
-  btn.addEventListener('click', () => {
-    const open = header.classList.toggle('menu-open');
-    btn.setAttribute('aria-expanded', String(open));
-  });
-  document.querySelectorAll('#mainNav a, #mainNav button:not(#themeToggle)').forEach(el => el.addEventListener('click', closeMenu));
-  window.addEventListener('resize', () => { if (window.innerWidth >= 700) closeMenu(); });
-}
-
 function bindEvents() {
-  renderSocialIcons();
-  initMobileMenu();
   $('reportForm').addEventListener('submit', submitReport);
   $('images')?.addEventListener('change', renderImagePreview);
   ['filterType', 'filterStatus'].forEach(id => $(id).addEventListener('input', () => { renderMap(); renderChart(); }));
   $('chartType').addEventListener('change', renderChart);
-  $('locateBtn').addEventListener('click', () => {
-    if (!navigator.geolocation) return Swal.fire('Ubicación', 'Tu navegador no permite usar geolocalización.', 'warning');
-    navigator.geolocation.getCurrentPosition(pos => {
-      const { latitude, longitude } = pos.coords;
-      map.setCenter({ lat: latitude, lng: longitude });
-      map.setZoom(17);
-      setSelectedLocation(latitude, longitude);
-    }, () => Swal.fire('Ubicación', 'No se pudo obtener tu ubicación. Se mantiene el mapa de Argentina.', 'warning'), { enableHighAccuracy: true, timeout: 9000, maximumAge: 60000 });
-  });
+  $('locateBtn').addEventListener('click', () => navigator.geolocation?.getCurrentPosition(pos => {
+    const { latitude, longitude } = pos.coords;
+    map.setCenter({ lat: latitude, lng: longitude });
+    map.setZoom(17);
+    setSelectedLocation(latitude, longitude);
+  }, () => Swal.fire('Ubicación', 'No se pudo obtener tu ubicación.', 'warning')));
   $('adminToggleBtn').addEventListener('click', async () => { $('adminDialog').showModal(); await checkSession(); });
-  $('fullscreenBtn')?.addEventListener('click', async () => {
-    try {
-      if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
-      else await document.exitFullscreen();
-    } catch (_) {
-      Swal.fire('Pantalla completa', 'El navegador no permitió cambiar a pantalla completa.', 'info');
-    }
-  });
   $('closeAdminBtn').addEventListener('click', () => $('adminDialog').close());
   $('loginBox').addEventListener('submit', (e) => { e.preventDefault(); adminLogin(); });
   $('logoutBtn').addEventListener('click', async () => { await supabaseClient.auth.signOut(); await checkSession(); });
