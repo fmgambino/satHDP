@@ -100,7 +100,7 @@ html{scroll-behavior:smooth;scroll-padding-top:86px}
 .row-actions{display:flex;gap:8px;flex-wrap:wrap;max-width:280px}
 .admin-row-check,#selectAllHead{width:18px;height:18px;accent-color:var(--brand)}
 .popup-card{width:min(440px,86vw)!important;max-width:440px!important}
-.popup-main-image{width:400px!important;height:400px!important;max-width:100%!important;object-fit:cover!important;object-position:center!important;border-radius:18px 18px 0 0}
+.popup-main-image{width:530px!important;height:300px!important;margin-left: 7px; max-width:100%!important;object-fit:cover!important;object-position:center!important;border-radius:18px 18px 0 0}
 .gm-style .gm-style-iw-c{max-width:460px!important}
 .gm-style .gm-style-iw-d{overflow:auto!important;max-height:82vh!important}
 .impulso-grid{max-width:1120px!important;grid-template-columns:repeat(auto-fit,minmax(360px,1fr))!important}
